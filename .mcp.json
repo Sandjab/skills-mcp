@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "skills": {
+      "command": "npx",
+      "args": ["tsx", "src/index.ts"],
+      "env": {
+        "SKILLS_DIR": "./test-skills"
+      }
+    }
+  }
+}
