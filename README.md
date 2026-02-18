@@ -1,30 +1,63 @@
 # skills-mcp
 
-MCP server that exposes a tree of Markdown-based dev skills to Claude Code. Runs locally, syncs content from a private GitHub repo.
+Serveur MCP (Model Context Protocol) qui expose un arbre de skills Markdown aux assistants IA comme Claude Code. Tourne en local, synchronise le contenu depuis un dépôt Git privé.
 
-## How it works
+## Pourquoi skills-mcp
 
-Skills are Markdown files with YAML frontmatter (keywords, description, inheritance rules). The server indexes them into a searchable tree. When Claude Code calls `get_skill`, the server matches keywords, resolves inheritance, and returns the aggregated content along with any associated assets and scripts.
+Les assistants IA générent du code sans connaître les conventions de votre équipe. Les fichiers `CLAUDE.md` ou les règles Cursor résolvent partiellement le problème, mais ils sont statiques, locaux, et chargés en bloc dans le contexte. **skills-mcp** prend une approche différente :
 
-## MCP tools
+- **Référentiel centralisé et partagé.** Les skills vivent dans un dépôt Git. Toute l'équipe travaille avec les mêmes règles, versionnées et revues par PR.
 
-| Tool | Description |
-|------|-------------|
-| `get_skill` | Search skills by context, return best match with content |
-| `list_skills` | Browse the skill tree |
-| `get_asset` | Retrieve an asset or script file |
-| `run_script` | Execute a server-side script |
-| `report_usage` | Submit feedback on a skill |
-| `refresh_skills` | Force git pull and reindex |
+- **Économie de contexte.** Un appel `get_skill` ne renvoie que le contenu pertinent pour la tâche en cours. Pas de chargement de milliers de lignes de règles non liées.
 
-## Setup
+- **Routing déterministe par keywords.** Chaque skill déclare des mots-clés explicites. Le matching est algorithmique (pas de LLM, pas d'embedding) : prévisible, rapide, débogable.
+
+- **Héritage hiérarchique.** Les règles communes sont factorisées dans des fichiers parents (`_root.md`, `_index.md`). Pas de copier-coller entre skills — une modification au parent se propage automatiquement.
+
+- **Assets et scripts associés.** Chaque skill peut embarquer des templates, exemples, schémas et scripts d'automatisation, servis à la demande.
+
+- **Contrôle d'accès granulaire.** Repo privé, branches protégées, review par PR — les pratiques de votre équipe sont gouvernées comme du code.
+
+- **Évolutivité.** Ajouter un skill = ajouter un fichier `.md` avec un frontmatter YAML. Pas de configuration serveur, pas de redéploiement.
+
+- **Observabilité et amélioration continue.** Analytics structurés + boucle de feedback (`report_usage`) pour identifier les skills manquants ou inefficaces.
+
+- **Réutilisation cross-outil.** Le contenu est du Markdown pur, exploitable en dehors de MCP (documentation, onboarding, CI).
+
+## Comment ça marche
+
+```mermaid
+graph LR
+    A[Claude Code] -->|"get_skill('react auth component')"| B[skills-mcp]
+    B --> C[Keyword Matcher]
+    C --> D{Résultat}
+    D -->|Match unique| E[Skill Resolver]
+    D -->|Ambiguïté| F[Liste de candidats]
+    D -->|Aucun match| G[no_match]
+    E -->|Contenu agrégé + assets| A
+```
+
+Claude Code décrit sa tâche en texte libre. Le serveur tokenise la requête, score chaque skill par correspondance de keywords, puis résout l'héritage pour assembler le contenu final (du `_root.md` jusqu'au skill le plus spécifique). Les assets et scripts associés sont renvoyés en métadonnées, récupérables via `get_asset`.
+
+## Outils MCP
+
+| Outil | Description |
+|-------|-------------|
+| `get_skill` | Recherche un skill par contexte, renvoie le meilleur résultat avec son contenu |
+| `list_skills` | Parcourt l'arbre des skills |
+| `get_asset` | Récupère le contenu d'un asset ou script associé |
+| `run_script` | Exécute un script côté serveur |
+| `report_usage` | Envoie un feedback sur un skill |
+| `refresh_skills` | Force un git pull et réindexe |
+
+## Démarrage rapide
 
 ```bash
 npm install
 npm run build
 ```
 
-### Add to your project's `.mcp.json`
+Ajoutez le serveur dans le fichier `.mcp.json` de votre projet (ou dans `~/.claude/` pour une configuration globale) :
 
 ```json
 {
@@ -41,7 +74,7 @@ npm run build
 }
 ```
 
-### Dev mode
+En mode développement (exécution depuis les sources) :
 
 ```json
 {
@@ -57,16 +90,35 @@ npm run build
 }
 ```
 
-## Environment variables
+> Pour l'installation détaillée, le mode local, et la configuration avancée (`config.yaml`), voir le [manuel utilisateur](docs/user-manual.md).
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SKILLS_REPO` | Yes | Git URL of the skills content repo |
-| `SKILLS_BRANCH` | No | Branch to track (default: `main`) |
-| `GITHUB_TOKEN` | No | For private repos |
-| `ANALYTICS_ENDPOINT` | No | Webhook URL for usage analytics |
-| `REFRESH_INTERVAL_MINUTES` | No | Auto-refresh interval (default: `15`) |
+## Variables d'environnement
 
-## License
+| Variable | Requis | Description |
+|----------|--------|-------------|
+| `SKILLS_REPO` | Oui | URL Git du dépôt de contenu skills |
+| `SKILLS_BRANCH` | Non | Branche à suivre (défaut : `main`) |
+| `GITHUB_TOKEN` | Non | Pour les dépôts privés |
+| `ANALYTICS_ENDPOINT` | Non | URL webhook pour les analytics d'usage |
+| `REFRESH_INTERVAL_MINUTES` | Non | Intervalle de rafraîchissement automatique (défaut : `15`) |
+
+## Documentation
+
+| Document | Contenu |
+|----------|---------|
+| [Manuel utilisateur](docs/user-manual.md) | Installation, configuration, écriture de skills, utilisation des outils, troubleshooting |
+| [Spécification fonctionnelle](docs/functional-spec.md) | Architecture, algorithmes, diagrammes techniques, sécurité |
+
+## Commandes
+
+```bash
+npm run build        # Compile TypeScript vers dist/
+npm run dev          # Exécute le serveur en mode dev (tsx)
+npm run test         # Lance les tests (vitest)
+npm run typecheck    # Vérification de types (tsc --noEmit)
+npm run lint         # Lint (eslint)
+```
+
+## Licence
 
 ISC
