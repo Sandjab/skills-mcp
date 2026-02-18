@@ -108,6 +108,8 @@ En mode développement (exécution depuis les sources) :
 |----------|---------|
 | [Manuel utilisateur](docs/user-manual.md) | Installation, configuration, écriture de skills, utilisation des outils, troubleshooting |
 | [Spécification fonctionnelle](docs/functional-spec.md) | Architecture, algorithmes, diagrammes techniques, sécurité |
+| [Analyse critique](docs/critical-analysis.md) | Valeur ajoutée, limites, compromis et public cible |
+| [Propositions d'amélioration](docs/improvements.md) | Pistes d'évolution classées par effort et impact |
 
 ## Commandes
 
