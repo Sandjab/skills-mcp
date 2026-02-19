@@ -111,6 +111,7 @@ En mode développement (exécution depuis les sources) :
 | [Analyse critique](docs/critical-analysis.md) | Valeur ajoutée, limites, compromis et public cible |
 | [Propositions d'amélioration](docs/improvements.md) | Pistes d'évolution classées par effort et impact |
 | [Analyse des systèmes de mémoire](docs/memory-systems-analysis.md) | Comparaison avec les serveurs MCP de mémoire, positionnement et complémentarité |
+| [Recherche mémoire Claude Code](docs/claude-code-memory-research.md) | État de l'art des systèmes de mémoire natifs et communautaires, analyse pour skills-mcp |
 
 ## Commandes
 
