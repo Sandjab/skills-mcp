@@ -110,6 +110,7 @@ En mode développement (exécution depuis les sources) :
 | [Spécification fonctionnelle](docs/functional-spec.md) | Architecture, algorithmes, diagrammes techniques, sécurité |
 | [Analyse critique](docs/critical-analysis.md) | Valeur ajoutée, limites, compromis et public cible |
 | [Propositions d'amélioration](docs/improvements.md) | Pistes d'évolution classées par effort et impact |
+| [Analyse des systèmes de mémoire](docs/memory-systems-analysis.md) | Comparaison avec les serveurs MCP de mémoire, positionnement et complémentarité |
 
 ## Commandes
 
