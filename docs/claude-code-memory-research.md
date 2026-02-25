@@ -47,6 +47,42 @@ Claude Code charge automatiquement ces fichiers au lancement, dans un ordre de p
 - **Lazy loading descendant :** les fichiers CLAUDE.md dans les sous-répertoires du cwd ne sont chargés qu'à la demande, quand Claude accède à des fichiers dans ces sous-arborescences. Économise du contexte.
 - **Priorité :** les instructions plus spécifiques prennent le pas sur les instructions plus générales.
 
+```mermaid
+graph TB
+    subgraph "Chargement récursif ascendant"
+        direction BT
+        CWD["📂 cwd/CLAUDE.md"]
+        PARENT["📂 ../CLAUDE.md"]
+        ROOT["📂 racine/CLAUDE.md"]
+        CWD --> PARENT --> ROOT
+    end
+
+    subgraph "Lazy loading descendant"
+        direction TB
+        SUB["📂 sous-dir/CLAUDE.md"]
+    end
+
+    SUB -.->|"chargé à la demande<br>quand Claude accède<br>à un fichier du sous-dir"| CWD
+
+    subgraph "Priorité décroissante"
+        direction TB
+        E["🏢 Enterprise Policy"]
+        U["👤 User Memory"]
+        P["📁 Project Memory"]
+        L["🔒 Project Local"]
+        E --> U --> P --> L
+    end
+
+    style E fill:#FFB3B3,stroke:#cc8080,color:#333
+    style U fill:#FFD9B3,stroke:#ccad80,color:#333
+    style P fill:#B3D9FF,stroke:#80adcc,color:#333
+    style L fill:#B3FFB3,stroke:#80cc80,color:#333
+    style CWD fill:#B3D9FF,stroke:#80adcc,color:#333
+    style PARENT fill:#FFD9B3,stroke:#ccad80,color:#333
+    style ROOT fill:#FFB3B3,stroke:#cc8080,color:#333
+    style SUB fill:#E6B3FF,stroke:#b380cc,color:#333
+```
+
 **Ajout rapide :** préfixer un message avec `#` pour ajouter une mémoire. Claude demandera dans quel fichier la stocker.
 
 **Édition directe :** commande `/memory` pour ouvrir n'importe quel fichier mémoire dans l'éditeur système.
@@ -99,6 +135,33 @@ Introduit dans la v2.1.32 et déployé progressivement. C'est la mémoire que Cl
 └── ...                    # Autres fichiers thématiques
 ```
 
+```mermaid
+graph LR
+    subgraph "Chargement au startup"
+        MEMORY["MEMORY.md<br>━━━━━━━━━━━━━━━━━━━━<br>✅ 200 premières lignes<br>chargées automatiquement<br>━━━━━━━━━━━━━━━━━━━━<br>❌ Reste ignoré"]
+    end
+
+    subgraph "Fichiers thématiques"
+        F1["debugging.md"]
+        F2["api-conventions.md"]
+        F3["patterns.md"]
+    end
+
+    MEMORY -.->|"liens vers"| F1
+    MEMORY -.->|"liens vers"| F2
+    MEMORY -.->|"liens vers"| F3
+    F1 -.->|"lus à la demande<br>via outils fichiers"| CLAUDE["🤖 Claude"]
+    F2 -.->|"lus à la demande"| CLAUDE
+    F3 -.->|"lus à la demande"| CLAUDE
+    MEMORY -->|"200 lignes<br>au startup"| CLAUDE
+
+    style MEMORY fill:#FFFFB3,stroke:#cccc80,color:#333
+    style F1 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style F2 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style F3 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style CLAUDE fill:#B3FFB3,stroke:#80cc80,color:#333
+```
+
 **Comportement :**
 
 - Le chemin `<project>` est dérivé de la racine Git → tous les sous-répertoires d'un même repo partagent un seul répertoire de mémoire
@@ -138,6 +201,21 @@ Quand la conversation approche 95% de la fenêtre de contexte, Claude Code décl
 
 **Problème documenté de drift comportemental :** après compaction, les références aux frameworks comportementaux définis dans CLAUDE.md sont paraphrasées dans le résumé. Claude voit "framework already discussed" et ne relit pas les fichiers source, causant une dérive progressive.
 
+```mermaid
+graph LR
+    A["💬 Conversation longue<br>~95% du contexte"] -->|"auto-compaction"| B["📝 Résumé synthétique<br>détails fins perdus"]
+    B -->|"paraphrase des<br>instructions CLAUDE.md"| C["🤖 Claude voit<br>'framework already discussed'"]
+    C -->|"ne relit pas<br>les sources"| D["⚠️ Dérive<br>comportementale"]
+    D -->|"accumulation"| E["🔄 Compaction suivante<br>dérive amplifiée"]
+    E --> B
+
+    style A fill:#B3FFB3,stroke:#80cc80,color:#333
+    style B fill:#FFFFB3,stroke:#cccc80,color:#333
+    style C fill:#FFD9B3,stroke:#ccad80,color:#333
+    style D fill:#FFB3B3,stroke:#cc8080,color:#333
+    style E fill:#FFB3D9,stroke:#cc80ad,color:#333
+```
+
 **Commandes :**
 
 - `/compact` : compaction manuelle
@@ -163,6 +241,45 @@ Les hooks permettent d'exécuter des scripts à des moments clés du cycle de vi
 - `command` : exécute un script shell (reçoit JSON sur stdin, stdout ajouté au contexte)
 - `prompt` : un seul appel LLM pour évaluation
 - `agent` : sous-agent multi-turn avec accès aux outils (Read, Grep, Glob)
+
+```mermaid
+sequenceDiagram
+    participant U as 👤 Utilisateur
+    participant CC as 🤖 Claude Code
+    participant H as ⚡ Hooks
+    participant M as 📝 Mémoire
+
+    rect rgb(179, 255, 179)
+        Note over U,M: Démarrage de session
+        U->>CC: Lance Claude Code
+        CC->>H: SessionStart
+        H->>M: Lit git status, TODO, handover
+        M-->>H: Contexte initial
+        H-->>CC: Inject contexte
+    end
+
+    rect rgb(179, 217, 255)
+        Note over U,M: Session de travail
+        U->>CC: Messages & tâches
+        CC->>CC: Travail (édition, recherche...)
+        Note over CC: Contexte grandit → 95%
+    end
+
+    rect rgb(255, 255, 179)
+        Note over U,M: Compaction
+        CC->>H: PreCompact
+        H->>M: Sauvegarde transcript / handover
+        CC->>CC: Auto-compaction (résumé)
+    end
+
+    rect rgb(255, 179, 179)
+        Note over U,M: Fin de session
+        CC->>H: Stop
+        H->>M: Vérification, mise à jour mémoire
+        CC->>H: SessionEnd
+        H->>M: Archivage, logging
+    end
+```
 
 **Exemple SessionStart :**
 
@@ -320,6 +437,20 @@ Index   → Stocke dans SQLite avec sqlite-vec
 Search  → Recherche sémantique par similarité vectorielle OU correspondance exacte
 ```
 
+```mermaid
+graph LR
+    A["🔄 Sync<br>Copie .jsonl"] --> B["📋 Parse<br>Extrait échanges"]
+    B --> C["🧮 Embed<br>Transformers.js<br>local, offline"]
+    C --> D["💾 Index<br>SQLite + sqlite-vec"]
+    D --> E["🔍 Search<br>Sémantique ou<br>correspondance exacte"]
+
+    style A fill:#B3D9FF,stroke:#80adcc,color:#333
+    style B fill:#B3FFE6,stroke:#80ccb3,color:#333
+    style C fill:#FFFFB3,stroke:#cccc80,color:#333
+    style D fill:#FFD9B3,stroke:#ccad80,color:#333
+    style E fill:#D9B3FF,stroke:#b380cc,color:#333
+```
+
 **Composants :**
 
 1. Hook de startup qui archive automatiquement les conversations
@@ -350,6 +481,17 @@ Search  → Recherche sémantique par similarité vectorielle OU correspondance 
 **Inspiration :** article *Generative Agents* (Park et al., 2023) + interview de Cat Wu / Boris Cherny de l'équipe Claude Code mentionnant que des employés Anthropic utilisent des diary entries pour identifier des patterns.
 
 **Le cycle en 3 étapes :**
+
+```mermaid
+graph LR
+    A["📓 /diary<br><b>Capturer</b><br>Entrée de journal<br>depuis la session"] --> B["🔬 /reflect<br><b>Synthétiser</b><br>Analyse des entrées<br>→ 6 catégories d'insights"]
+    B --> C["✏️ Auto-update<br><b>CLAUDE.md</b><br>Règles impératives<br>d'une ligne"]
+    C -->|"session suivante<br>règles appliquées"| A
+
+    style A fill:#B3D9FF,stroke:#80adcc,color:#333
+    style B fill:#D9B3FF,stroke:#b380cc,color:#333
+    style C fill:#B3FFB3,stroke:#80cc80,color:#333
+```
 
 **Étape 1 : `/diary` — Capturer.** Crée une entrée de journal à partir de la session courante. Deux modes : automatique (hook PreCompact) ou manuel.
 
@@ -416,6 +558,31 @@ Priorité la plus haute : scanner les violations des règles CLAUDE.md existante
 Un worker de fond capture automatiquement tout ce que Claude fait (éditions de fichiers, appels d'outils, décisions), compresse via l'Agent SDK de Claude, et réinjecte le contexte pertinent dans les sessions futures.
 
 **5 outils MCP suivant un workflow à 3 couches efficace en tokens :**
+
+```mermaid
+graph TD
+    subgraph "Layer 1 — Recherche légère"
+        S["🔍 search(query, type, limit)<br>Parcourt l'index"]
+    end
+
+    subgraph "Layer 2 — Triage"
+        T["📋 Identifier les IDs<br>pertinents dans les résultats"]
+    end
+
+    subgraph "Layer 3 — Récupération ciblée"
+        G["📦 get_observations(ids)<br>Détails complets"]
+    end
+
+    S -->|"résultats résumés"| T
+    T -->|"IDs sélectionnés"| G
+
+    SAVE["💾 save_memory(text, title)<br>Sauvegarde manuelle"]
+
+    style S fill:#B3D9FF,stroke:#80adcc,color:#333
+    style T fill:#FFFFB3,stroke:#cccc80,color:#333
+    style G fill:#B3FFB3,stroke:#80cc80,color:#333
+    style SAVE fill:#FFD9B3,stroke:#ccad80,color:#333
+```
 
 ```javascript
 // Layer 1: Rechercher l'index
@@ -521,6 +688,29 @@ Deux implémentations : legacy (directory-based, en production) et MCP (en déve
 
 **Principe :**
 
+```mermaid
+sequenceDiagram
+    participant CC as 🤖 Claude Code<br>(contexte ~95%)
+    participant H as ⚡ Hook PreCompact
+    participant C2 as 🤖 Claude -p<br>(instance fraîche)
+    participant F as 📄 Handover.md
+
+    CC->>H: Déclenche PreCompact
+    H->>H: Lit transcript complet<br>(non compressé) via transcript_path
+    H->>C2: Envoie le transcript<br>(instance fraîche, contexte vide)
+    C2->>C2: Génère résumé de passation<br>(état, décisions, prochaines étapes)
+    C2-->>F: Sauvegarde handover structuré
+
+    Note over CC: Auto-compaction se produit<br>(résumé lossy)
+
+    rect rgb(179, 255, 179)
+        Note over CC,F: Récupération post-compaction
+        CC->>CC: /clear (reset propre)
+        CC->>F: Charge le handover
+        F-->>CC: Contexte restauré avec précision
+    end
+```
+
 1. Hook PreCompact se déclenche avant la compaction
 2. Le script lit le transcript complet (non compressé) via `transcript_path`
 3. **Détail clé :** il appelle `claude -p` pour lancer une instance fraîche de Claude (car l'instance courante est déjà presque pleine) qui génère le résumé de passation
@@ -624,6 +814,34 @@ Utiliser `[ ]` dans des fichiers markdown est souvent suffisant et ne consomme p
 
 ## 5. Tendances et insights clés
 
+```mermaid
+mindmap
+  root((Tendances<br>mémoire IA))
+    🎯 Sélection > Stockage
+      Le vrai défi est le routing
+      Risque d injection hors-sujet
+    🔗 Combinaison d approches
+      Auto Memory pour les bases
+      Beads pour les tâches
+      Diary pour l apprentissage
+      Handover pour la survie
+    ⚡ Efficacité en tokens
+      Systèmes légers favorisés
+      1-2k tokens vs 50k
+      Chargement à la demande
+    📁 Filesystem comme mémoire
+      Markdown simple et efficace
+      Git pour le versioning
+      Pas besoin de vector DB
+    🧠 Gap procédural
+      Workflows oubliés après 100+ fois
+      Issue GitHub #8209
+    🚀 Mémoire → Compétences
+      Au-delà du savoir → savoir-faire
+      Procédures réutilisables
+      Skills sur le filesystem
+```
+
 ### Le problème fondamental n'est pas le stockage mais la sélection
 
 Les agents populaires utilisent un ensemble étroit de fichiers toujours tirés dans le contexte (CLAUDE.md, rules). Quand un agent stocke une collection plus large de faits, la sélection du bon contexte au bon moment devient le vrai défi. ChatGPT illustre ce risque : Simon Willison a montré un cas où la sélection de mémoire a injecté sa localisation dans une image sans rapport.
@@ -703,6 +921,27 @@ La Partie 1 documente les mécanismes natifs de Claude Code et les systèmes com
 
 L'analyse précédente identifiait deux axes : **Curatée vs Émergente** et **Lexicale vs Sémantique**. Les systèmes de la Partie 1 s'y intègrent naturellement :
 
+```mermaid
+quadrantChart
+    title Cartographie des systèmes de mémoire IA
+    x-axis Lexicale --> Sémantique
+    y-axis Émergente --> Curatée
+    quadrant-1 Curatée + Sémantique
+    quadrant-2 Curatée + Lexicale
+    quadrant-3 Émergente + Lexicale
+    quadrant-4 Émergente + Sémantique
+    skills-mcp: [0.25, 0.85]
+    CLAUDE.md / Rules: [0.35, 0.80]
+    Memory Bank: [0.45, 0.75]
+    Beads: [0.20, 0.35]
+    server-memory: [0.15, 0.30]
+    Claude Diary: [0.70, 0.40]
+    Episodic Memory: [0.75, 0.30]
+    MCP Memory Service: [0.80, 0.25]
+    Claude-Mem: [0.70, 0.20]
+    Mem0: [0.25, 0.20]
+```
+
 ```
                          Curatée
                             │
@@ -734,6 +973,54 @@ La psychologie cognitive distingue des types de mémoire que l'on retrouve direc
 
 skills-mcp est le seul système qui combine **mémoire déclarative** (le contenu des skills) avec une dimension **procédurale** (scripts et assets actionnables). C'est une niche unique.
 
+```mermaid
+graph TD
+    subgraph "🧠 Déclarative"
+        D1["CLAUDE.md"]
+        D2["Rules"]
+        D3["Memory Bank"]
+        D4["<b>skills-mcp</b>"]
+    end
+
+    subgraph "📖 Épisodique"
+        E1["Episodic Memory"]
+        E2["Claude-Mem"]
+        E3["PreCompact Handover"]
+    end
+
+    subgraph "💡 Sémantique"
+        S1["Auto Memory"]
+        S2["Claude Diary"]
+        S3["MCP Memory Service"]
+        S4["Qdrant"]
+    end
+
+    subgraph "⚙️ Procédurale"
+        P1["Beads"]
+        P2["Simone"]
+        P3["<b>skills-mcp</b>"]
+        P4["⚠️ Gap principal<br>issue #8209"]
+    end
+
+    D4 ---|"niche unique :<br>déclarative + procédurale"| P3
+
+    style D1 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style D2 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style D3 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style D4 fill:#B3D9FF,stroke:#80adcc,color:#333,stroke-width:3px
+    style E1 fill:#D9B3FF,stroke:#b380cc,color:#333
+    style E2 fill:#D9B3FF,stroke:#b380cc,color:#333
+    style E3 fill:#D9B3FF,stroke:#b380cc,color:#333
+    style S1 fill:#FFFFB3,stroke:#cccc80,color:#333
+    style S2 fill:#FFFFB3,stroke:#cccc80,color:#333
+    style S3 fill:#FFFFB3,stroke:#cccc80,color:#333
+    style S4 fill:#FFFFB3,stroke:#cccc80,color:#333
+    style P1 fill:#B3FFB3,stroke:#80cc80,color:#333
+    style P2 fill:#B3FFB3,stroke:#80cc80,color:#333
+    style P3 fill:#B3FFB3,stroke:#80cc80,color:#333,stroke-width:3px
+    style P4 fill:#FFB3B3,stroke:#cc8080,color:#333
+```
+
 ---
 
 ## 8. Positionnement de skills-mcp
@@ -754,6 +1041,37 @@ La question que tout utilisateur posera : **pourquoi skills-mcp quand CLAUDE.md 
 | **Cross-outil** | Claude Code uniquement | Tout client MCP |
 
 **Conclusion :** skills-mcp et CLAUDE.md ne sont pas en concurrence — ils sont complémentaires à deux niveaux différents. CLAUDE.md est la mémoire locale et personnelle ; skills-mcp est le référentiel partagé et gouverné. La bonne pratique est de combiner les deux : un CLAUDE.md léger qui *déclenche* l'appel à skills-mcp pour les conventions détaillées.
+
+```mermaid
+graph LR
+    subgraph "CLAUDE.md + Rules"
+        A1["📝 Mémoire locale"]
+        A2["👤 Personnelle"]
+        A3["🔄 Copier-coller<br>entre projets"]
+        A4["📊 Chargé au startup"]
+    end
+
+    subgraph "skills-mcp"
+        B1["📚 Référentiel partagé"]
+        B2["👥 Gouverné (PR + review)"]
+        B3["🔗 Un seul dépôt Git<br>sync automatique"]
+        B4["⚡ Chargé à la demande"]
+    end
+
+    C["🤖 Claude Code"] --> A1
+    C --> B1
+    A1 -->|"déclenche"| B1
+
+    style A1 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style A2 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style A3 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style A4 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style B1 fill:#B3FFB3,stroke:#80cc80,color:#333
+    style B2 fill:#B3FFB3,stroke:#80cc80,color:#333
+    style B3 fill:#B3FFB3,stroke:#80cc80,color:#333
+    style B4 fill:#B3FFB3,stroke:#80cc80,color:#333
+    style C fill:#FFFFB3,stroke:#cccc80,color:#333
+```
 
 ### skills-mcp vs les systèmes communautaires
 
@@ -780,6 +1098,37 @@ L'[analyse précédente](memory-systems-analysis.md) détaille cette comparaison
 ## 9. Opportunités concrètes
 
 Les systèmes de la Partie 1 révèlent des patterns exploitables par skills-mcp. Voici les opportunités classées par priorité.
+
+```mermaid
+graph TD
+    subgraph "🔴 Priorité haute"
+        P1["9.1 Génération CLAUDE.md<br>comme déclencheur"]
+        P2["9.2 Hook SessionStart<br>injection de contexte"]
+    end
+
+    subgraph "🟡 Priorité moyenne"
+        P3["9.3 Intégration cycle<br>diary/reflect"]
+        P4["9.4 Description<br>dynamique MCP"]
+        P5["9.5 Aliases et synonymes<br>pour le recall"]
+    end
+
+    subgraph "🔵 Priorité basse"
+        P6["9.6 Analytics actionnables<br>boucle de feedback"]
+    end
+
+    P1 -->|"résout le problème #1<br>invocation"| P2
+    P2 -->|"renforce"| P4
+    P4 --> P5
+    P5 --> P3
+    P3 -->|"pont émergent → curatée"| P6
+
+    style P1 fill:#FFB3B3,stroke:#cc8080,color:#333
+    style P2 fill:#FFB3B3,stroke:#cc8080,color:#333
+    style P3 fill:#FFFFB3,stroke:#cccc80,color:#333
+    style P4 fill:#FFFFB3,stroke:#cccc80,color:#333
+    style P5 fill:#FFFFB3,stroke:#cccc80,color:#333
+    style P6 fill:#B3D9FF,stroke:#80adcc,color:#333
+```
 
 ### 9.1 Génération CLAUDE.md comme déclencheur (priorité haute)
 
@@ -885,6 +1234,25 @@ api (rest, auth, middleware), infra (docker, ci), testing.
 
 ### Position unique de skills-mcp
 
+```mermaid
+graph TD
+    subgraph "Ce que skills-mcp est seul à couvrir"
+        U1["🏛️ Connaissance curatée<br>ET gouvernée<br><i>PR + review comme du code</i>"]
+        U2["📦 Contenu + Opérationnel<br><i>Scripts et assets associés<br>aux skills</i>"]
+        U3["🌳 Cross-outil avec<br>héritage hiérarchique<br><i>_root.md → leaf skill</i>"]
+        U4["👥 Distribution d'équipe<br><i>Git natif, sync auto</i>"]
+    end
+
+    U1 --- U2
+    U2 --- U3
+    U3 --- U4
+
+    style U1 fill:#B3FFB3,stroke:#80cc80,color:#333
+    style U2 fill:#B3D9FF,stroke:#80adcc,color:#333
+    style U3 fill:#D9B3FF,stroke:#b380cc,color:#333
+    style U4 fill:#FFFFB3,stroke:#cccc80,color:#333
+```
+
 Dans le paysage complet des systèmes de mémoire pour Claude Code, skills-mcp occupe une niche que personne d'autre ne couvre :
 
 1. **Seul système de connaissance curatée et gouvernée** — les natifs (CLAUDE.md) sont curatés mais locaux et non gouvernés ; les communautaires sont émergents et automatiques
@@ -895,6 +1263,52 @@ Dans le paysage complet des systèmes de mémoire pour Claude Code, skills-mcp o
 ### Architecture cible recommandée
 
 Pour un utilisateur avancé, l'architecture optimale combine skills-mcp avec les mécanismes natifs :
+
+```mermaid
+block-beta
+    columns 1
+
+    block:always["🟢 Toujours en contexte"]:1
+        columns 3
+        claude["CLAUDE.md\n~50 lignes\n+ bloc 'appelle get_skill'"]
+        auto["Auto Memory\n200 lignes\nauto-géré"]
+        rules["Rules\n.claude/rules/\nscopées par fichier"]
+    end
+
+    space
+
+    block:demand["🔵 À la demande"]:1
+        columns 2
+        skills["skills-mcp\nget_skill → contenu détaillé"]
+        docs["docs/\n@référencés quand pertinent"]
+    end
+
+    space
+
+    block:session["🟡 Gestion de session"]:1
+        columns 2
+        handover["PreCompact Handover\nsurvie aux compactions"]
+        clear["/clear\nentre tâches distinctes"]
+    end
+
+    space
+
+    block:learning["🟣 Apprentissage continu (optionnel)"]:1
+        columns 2
+        diary["Claude Diary\ndiary → reflect → CLAUDE.md"]
+        beads["Beads\nsuivi de tâches structuré"]
+    end
+
+    style claude fill:#B3FFB3,stroke:#80cc80,color:#333
+    style auto fill:#B3FFB3,stroke:#80cc80,color:#333
+    style rules fill:#B3FFB3,stroke:#80cc80,color:#333
+    style skills fill:#B3D9FF,stroke:#80adcc,color:#333
+    style docs fill:#B3D9FF,stroke:#80adcc,color:#333
+    style handover fill:#FFFFB3,stroke:#cccc80,color:#333
+    style clear fill:#FFFFB3,stroke:#cccc80,color:#333
+    style diary fill:#D9B3FF,stroke:#b380cc,color:#333
+    style beads fill:#D9B3FF,stroke:#b380cc,color:#333
+```
 
 ```
 ┌─ Toujours en contexte ─────────────────────────┐
