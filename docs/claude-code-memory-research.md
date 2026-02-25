@@ -1,7 +1,7 @@
 # Systèmes de mémoire pour Claude Code — Recherche et analyse
 
-> **Date de recherche :** 19 février 2026
-> **Version Claude Code de référence :** 2.1.47
+> **Date de recherche :** 25 février 2026
+> **Version Claude Code de référence :** 2.1.56
 > **Sources :** documentation officielle Anthropic, repos GitHub, articles communautaires, issues GitHub
 
 ---
